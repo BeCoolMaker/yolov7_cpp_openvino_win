@@ -110,17 +110,17 @@ void DetYolov7::init(std::string model_path, std::string label_path,
     inf_img_w = input_shape[3];
 }
 
-std::vector<DetRect> DetYolov7::detector(cv::Mat input) {
-    OPENVINO_ASSERT(!input.empty(), "Image is empty");
-    if (input.channels() == 1) {
-        cvtColor(input, input, cv::COLOR_GRAY2BGR);
+std::vector<DetRect> DetYolov7::detector(cv::Mat src) {
+    OPENVINO_ASSERT(!src.empty(), "Image is empty");
+    if (src.channels() == 1) {
+        cvtColor(src, src, cv::COLOR_GRAY2BGR);
     }
-
+    cv::Mat input, img; 
+    cvtColor(src, input, cv::COLOR_BGR2RGB);
     // -------- Step 4. Create an infer request --------
     auto infer_request = compiled_model.create_infer_request();
 
     // -------- Step 5. Mat convert to openvino tensor --------
-    cv::Mat img;
     letterbox(input, img);
     float* input_data = new float[inf_img_h * inf_img_w * 3];
     for (int c = 0; c < 3; c++)
@@ -146,6 +146,7 @@ std::vector<DetRect> DetYolov7::detector(cv::Mat input) {
 
     auto out_info = compiled_model.outputs();
 
+    // Check whether it is v7-e6 or v7 model
     if (out_info.size() == 3) {
         net_grids = {80, 40, 20};
     } else {
@@ -153,9 +154,10 @@ std::vector<DetRect> DetYolov7::detector(cv::Mat input) {
     }
 
     for (size_t i = 0; i < net_grids.size(); i++) {
-        auto output_tensor_p8 = infer_request.get_output_tensor(i);
-        const float* result_p8 = output_tensor_p8.data<const float>();
-        parse_yolov7(result_p8, net_grids[i], cof_thresh, origin_rect,
+        auto output_tensor = infer_request.get_output_tensor(i);
+        std::cout << "output_tensor get_shape" << output_tensor.get_shape() << std::endl;
+        const float* _result = output_tensor.data<const float>();
+        parse_yolov7(_result, net_grids[i], cof_thresh, origin_rect,
                      origin_rect_cof, origin_label);
     }
 
@@ -181,7 +183,7 @@ std::vector<DetRect> DetYolov7::detector(cv::Mat input) {
         int y0 = det.rect.y;
         int x1 = x0 + det.rect.width;
         int y1 = y0 + det.rect.height;
-        cv::rectangle(input, cv::Point(x0, y0), cv::Point(x1, y1),
+        cv::rectangle(src, cv::Point(x0, y0), cv::Point(x1, y1),
                       cv::Scalar(0, 255, 0), 1);
         std::string prob = cv::format("%.2f", det.prob);
         std::string label = det.label + ": " + prob;
@@ -189,14 +191,14 @@ std::vector<DetRect> DetYolov7::detector(cv::Mat input) {
         int baseLine;
         cv::Size labelSize = cv::getTextSize(label, cv::FONT_HERSHEY_SIMPLEX,
                                              0.25, 1, &baseLine);
-        cv::rectangle(input, cv::Point(x0, y0 - round(1.5 * labelSize.height)),
+        cv::rectangle(src, cv::Point(x0, y0 - round(1.5 * labelSize.height)),
                       cv::Point(x0 + round(2 * labelSize.width), y0 + baseLine),
                       cv::Scalar(0, 255, 0), cv::FILLED);
-        cv::putText(input, label, cv::Point(x0, y0), cv::FONT_HERSHEY_SIMPLEX,
+        cv::putText(src, label, cv::Point(x0, y0), cv::FONT_HERSHEY_SIMPLEX,
                     0.5, cv::Scalar(), 1.5);
     }
 
-    cv::imwrite("pred.jpg", input);
+    cv::imwrite("pred.jpg", src);
     return det_rects;
 }
 
@@ -204,10 +206,6 @@ void DetYolov7::parse_yolov7(const float* output_blob, int net_grid,
                              float cof_threshold, std::vector<cv::Rect>& o_Rect,
                              std::vector<float>& o_Rect_cof,
                              std::vector<std::string>& origin_label) {
-    // 解析推理后的数据，将其转换为数组
-    // 解析 net_grid * net_grid * anchor_n个锚框
-    // 假设输出100个锚框2分类，每个框是[x,y,w,h,box得分,a类得分，b类的得分]
-    // 输入就是100个[x,y,w,h,box得分,a类得分，b类的得分]拼接为一维数组,我们做的就是解析它。
     std::vector<int> anchors = get_anchors(net_grid);
     int item_size = 5 + labels.size();
     int anchor_n = 3;
@@ -222,8 +220,6 @@ void DetYolov7::parse_yolov7(const float* output_blob, int net_grid,
               if (box_prob < cof_threshold) continue;
 
               // 获取得分最高的类别idx
-              // 假设有5个类别表示为[0.1, 0.2, 0.3, 0.4, 0.9],
-              // 很明显0.9的得分最大，我们需要得到其中0.9就好了
               double max_prob = 0;
               int idx = 0;
               for (int t = 5; t < item_size; ++t) {
