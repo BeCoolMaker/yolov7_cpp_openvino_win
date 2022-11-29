@@ -1,13 +1,13 @@
 # yolov7_cpp_openvino_win
-Windows下一个超简单的YOLOV7加速demo,使用openvino加速cpu进行推理，支持YOLOV7 d6、e6、w6，简化了初学者操作，开箱即食。
+Windows下超简单的YOLOV7加速demo。使用openvino加速cpu进行推理，支持YOLOV7 d6、e6、w6，简化初学者操作，开箱即食。
 
 ## 准备环境
-- windows 10 x64
-- visual studio 2022
-- openvino_2022.1.0.643
-- opencv 454
+- Windows10-x64
+- Visual Studio 2022
+- OpenVINO 2022.1.0.643
+- OpenCV454
 
-## windows下快速使用
+## Windows下快速使用
 ```
 DetYolov7 det;
 std::string model_dir = "data/yolov7/yolov7.onnx";  //模型路径
@@ -19,7 +19,7 @@ det.init(model_dir, label_txt, cof_threshold, nms_area_threshold);
 cv::Mat im = cv::imread("data/yolov7/im.jpg");
 auto result = det.detector(im);
 ```
-## 部署
+## 部署步骤
 #### Step 1. 初始化
 - 注意是否缺乏依赖项
 #### Step 2. 读取模型
