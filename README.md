@@ -8,8 +8,10 @@ Windows下超简单的YOLOV7加速demo。使用openvino加速cpu进行推理，�
 - OpenCV454
 
 ## Windows下快速使用
+```
+git clone https://github.com/BeCoolMaker/yolov7_cpp_openvino_win.git
+```
 - 准备好yolov7 onnx模型、label文件、预测图像（label为txt文件，标签换行分隔）
-- git clone https://github.com/BeCoolMaker/yolov7_cpp_openvino_win.git
 - 安装好openvino，把安装路径下的runtime中include\bin\lib文件分别拷贝至项目文件夹下
 - 准备好opencv > 3.0,同样把include\bin\lib拷贝至根目录下
 - vs打开.sln文件，2022版本之前的可以去改sln文件，适配2019、2017等版本
